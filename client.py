@@ -1,7 +1,9 @@
 import msgpack
+import delorean
+import threading
 import random
 import time
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 from bw2python import ponames
 from bw2python.bwtypes import PayloadObject
@@ -25,7 +27,7 @@ class BW2DataClient(object):
         # bw2 client
         if client is None:
             client = Client()
-            client.setEntityFromEnviron()
+            client.vk = client.setEntityFromEnviron()
             client.overrideAutoChainTo(True)
         if not isinstance(client, Client):
             raise TypeError("first argument must be bw2python.client.Client or None")
@@ -50,7 +52,7 @@ class BW2DataClient(object):
                 if diff.total_seconds() < 20:
                     self.archivers.append(archiver)
 
-    def query(self, query, archiver=""):
+    def query(self, query, archiver="", timeout=5):
         """
         Runs the given pundat query and returns the results as a Python object.
 
@@ -58,13 +60,34 @@ class BW2DataClient(object):
         [query]: the query string
         [archiver]: if specified, this is the archiver to use. Else, it will run on the first archiver passed
                     into the constructor for the client
+        [timeout]: time in seconds to wait for a response from the archiver
         """
         if archiver == "":
             archiver = self.archivers[0]
 
+        nonce = random.randint(0, 2**32)
+        ev = threading.Event()
+        response = {}
         def _handleresult(msg):
-            # decode, throw away if not mance nonce
-            print msg
+            # decode, throw away if not correct nonce
+            got_response = False
+            error = getError(nonce, msg)
+            if error is not None:
+                got_response = True
+                response["error"] = error
+
+            metadata = getMetadata(nonce, msg)
+            if metadata is not None:
+                got_response = True
+                response["metadata"] = metadata
+
+            timeseries = getTimeseries(nonce, msg)
+            if timeseries is not None:
+                got_response = True
+                response["timeseries"] = timeseries
+
+            if got_response:
+                ev.set()
 
         vk = self.vk[:-1] # remove last part of VK because archiver doesn't expect it
 
@@ -72,14 +95,161 @@ class BW2DataClient(object):
         self.c.subscribe("{0}/s.giles/_/i.archiver/signal/{1},queries".format(archiver, vk), _handleresult)
 
         # execute query
-        nonce = random.randint(0, 2**32)
         q_struct = msgpack.packb({"Query": query, "Nonce": nonce})
         po = PayloadObject((2,0,8,1), None, q_struct)
         self.c.publish("{0}/s.giles/_/i.archiver/slot/query".format(archiver), payload_objects=(po,))
 
-        # TODO: need a way to wait for data
-        time.sleep(5)
+        ev.wait(timeout)
+        return response
 
+    def uuids(self, where, archiver="", timeout=5):
+        """
+        Using the given where-clause, finds all UUIDs that match
+
+        Arguments:
+        [where]: the where clause (e.g. 'path like "keti"', 'SourceName = "TED Main"')
+        [archiver]: if specified, this is the archiver to use. Else, it will run on the first archiver passed
+                    into the constructor for the client
+        [timeout]: time in seconds to wait for a response from the archiver
+        """
+        resp = self.query("select uuid where {0}".format(where), archiver, timeout)
+        uuids = []
+        for r in resp["metadata"]:
+            uuids.append(r["UUID"])
+        return uuids
+
+    def data_uuids(self, uuids, start, end, archiver="", timeout=5):
+        """
+        With the given list of UUIDs, retrieves all RAW data between the 2 given timestamps
+
+        Arguments:
+        [uuids]: list of UUIDs
+        [start, end]: time references:
+        [archiver]: if specified, this is the archiver to use. Else, it will run on the first archiver passed
+                    into the constructor for the client
+        [timeout]: time in seconds to wait for a response from the archiver
+        """
+        if not isinstance(uuids, list):
+            uuids = [uuids]
+        where = " or ".join(['uuid = "{0}"'.format(uuid) for uuid in uuids])
+        return self.query("select data in ({0}, {1}) where {2}".format(start, end, where), archiver, timeout)
+
+    def data(self, where, start, end, archiver="", timeout=5):
+        """
+        With the given WHERE clause, retrieves all RAW data between the 2 given timestamps
+
+        Arguments:
+        [uuids]: list of UUIDs
+        [start, end]: time references:
+        [archiver]: if specified, this is the archiver to use. Else, it will run on the first archiver passed
+                    into the constructor for the client
+        [timeout]: time in seconds to wait for a response from the archiver
+        """
+        return self.query("select data in ({0}, {1}) where {2}".format(start, end, where), archiver, timeout)
+
+    def stats(self, where, start, end, pw, archiver="", timeout=5):
+        """
+        With the given WHERE clause, retrieves all statistical data between the 2 given timestamps, using the given pointwidth
+
+        Arguments:
+        [uuids]: list of UUIDs
+        [start, end]: time references:
+        [pw]: pointwidth (window size of 2^pw nanoseconds)
+        [archiver]: if specified, this is the archiver to use. Else, it will run on the first archiver passed
+                    into the constructor for the client
+        [timeout]: time in seconds to wait for a response from the archiver
+        """
+        return self.query("select statistical({3}) data in ({0}, {1}) where {2}".format(start, end, where, pw), archiver, timeout)
+
+    def stats_uuids(self, uuids, start, end, pw, archiver="", timeout=5):
+        """
+        With the given set of uuids, retrieves all statistical data between the 2 given timestamps, using the given pointwidth
+
+        Arguments:
+        [uuids]: list of UUIDs
+        [start, end]: time references:
+        [pw]: pointwidth (window size of 2^pw nanoseconds)
+        [archiver]: if specified, this is the archiver to use. Else, it will run on the first archiver passed
+                    into the constructor for the client
+        [timeout]: time in seconds to wait for a response from the archiver
+        """
+        if not isinstance(uuids, list):
+            uuids = [uuids]
+        where = " or ".join(['uuid = "{0}"'.format(uuid) for uuid in uuids])
+        return self.query("select statistical({3}) data in ({0}, {1}) where {2}".format(start, end, where, pw), archiver, timeout)
+
+    def window(self, where, start, end, width, archiver="", timeout=5):
+        """
+        With the given WHERE clause, retrieves all statistical data between the 2 given timestamps, using the given window size
+
+        Arguments:
+        [uuids]: list of UUIDs
+        [start, end]: time references:
+        [width]: a time expression for the window size, e.g. "5s", "365d"
+        [archiver]: if specified, this is the archiver to use. Else, it will run on the first archiver passed
+                    into the constructor for the client
+        [timeout]: time in seconds to wait for a response from the archiver
+        """
+        return self.query("select window({3}) data in ({0}, {1}) where {2}".format(start, end, where, width), archiver, timeout)
+
+    def window_uuids(self, uuids, start, end, width, archiver="", timeout=5):
+        """
+        With the given set of uuids, retrieves all statistical data between the 2 given timestamps, using the given window size
+
+        Arguments:
+        [uuids]: list of UUIDs
+        [start, end]: time references:
+        [width]: a time expression for the window size, e.g. "5s", "365d"
+        [archiver]: if specified, this is the archiver to use. Else, it will run on the first archiver passed
+                    into the constructor for the client
+        [timeout]: time in seconds to wait for a response from the archiver
+        """
+        if not isinstance(uuids, list):
+            uuids = [uuids]
+        where = " or ".join(['uuid = "{0}"'.format(uuid) for uuid in uuids])
+        return self.query("select window({3}) data in ({0}, {1}) where {2}".format(start, end, where, width), archiver, timeout)
+
+
+def timestamp(thing, nanoseconds=False):
+    if nanoseconds:
+        return thing+"ns"
+    if isinstance(thing, int) or isinstance(thing, float):
+        # try to treat as a number
+        return str(thing)
+    else:
+        return delorean.parse(thing).epoch + 's'
+
+def getError(nonce, msg):
+    for po in msg.payload_objects:
+        if po.type_dotted == (2,0,8,9): # GilesQueryError
+            data = msgpack.unpackb(po.content)
+            if data["Nonce"] != nonce:
+                continue
+            return data
+def getMetadata(nonce, msg):
+    for po in msg.payload_objects:
+        if po.type_dotted == (2,0,8,2): # GilesMetadataResult
+            data = msgpack.unpackb(po.content)
+            if data["Nonce"] != nonce:
+                continue
+            return data["Data"]
+def getTimeseries(nonce, msg):
+    for po in msg.payload_objects:
+        if po.type_dotted == (2,0,8,4): # GilesTimeseriesResult
+            data = msgpack.unpackb(po.content)
+            if data["Nonce"] != nonce:
+                continue
+            if data["Data"]:
+                ts_data = []
+                for res in data["Data"]:
+                    ts_data.append({res["UUID"]: zip(res["Times"], res["Values"])})
+                return ts_data
+            if data["Stats"]:
+                ts_data = []
+                for res in data["Stats"]:
+                    ts_data.append({res["UUID"]: zip(res["Times"], res["Min"], res["Mean"], res["Max"], res["Max"])})
+                return ts_data
+            return data
 
 def pretty_print_timedelta(td):
     res = ""
