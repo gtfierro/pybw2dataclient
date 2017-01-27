@@ -10,7 +10,7 @@ from bw2python.bwtypes import PayloadObject
 from bw2python.client import Client
 
 
-class BW2DataClient(object):
+class DataClient(object):
     """
     Simple wrapper class for interacting with data services exposed over BOSSWAVE
     """
