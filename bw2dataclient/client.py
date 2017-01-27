@@ -244,7 +244,7 @@ def timestamp(thing, nanoseconds=False):
         # try to treat as a number
         return str(thing)
     else:
-        return delorean.parse(thing).epoch + 's'
+        return str(delorean.parse(thing).epoch) + 's'
 
 def getError(nonce, msg):
     for po in msg.payload_objects:
