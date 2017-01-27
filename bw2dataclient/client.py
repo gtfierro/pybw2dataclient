@@ -236,6 +236,19 @@ class DataClient(object):
         where = " or ".join(['uuid = "{0}"'.format(uuid) for uuid in uuids])
         return self.query("select window({3}) data in ({0}, {1}) where {2}".format(start, end, where, width), archiver, timeout).get('timeseries',{})
 
+def make_dataframe(result):
+    """
+    Turns the results of one of the data API calls into a pandas dataframe
+    """
+    import pandas as pd
+    ret = {}
+    for uuid, data in result.items():
+        df = pd.DataFrame(data)
+        df.columns = ['time','min','mean','max','count']
+        df['time'] = pd.to_datetime(df['time'],'ns')
+        df = df.set_index(df.pop('time'))
+        ret[uuid] = df
+    return ret
 
 def timestamp(thing, nanoseconds=False):
     if nanoseconds:
