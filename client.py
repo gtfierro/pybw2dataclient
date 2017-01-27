@@ -118,6 +118,46 @@ class BW2DataClient(object):
             uuids.append(r["UUID"])
         return uuids
 
+    def tags(self, where, archiver="", timeout=5):
+        """
+        Retrieves tags for all streams matching the given WHERE clause
+
+        Arguments:
+        [where]: the where clause (e.g. 'path like "keti"', 'SourceName = "TED Main"')
+        [archiver]: if specified, this is the archiver to use. Else, it will run on the first archiver passed
+                    into the constructor for the client
+        [timeout]: time in seconds to wait for a response from the archiver
+        """
+        return self.query("select * where {0}".format(where), archiver, timeout).get('metadata',{})
+
+    def tags_uuids(self, uuids, archiver="", timeout=5):
+        """
+        Retrieves tags for all streams with the provided UUIDs
+
+        Arguments:
+        [uuids]: list of UUIDs
+        [archiver]: if specified, this is the archiver to use. Else, it will run on the first archiver passed
+                    into the constructor for the client
+        [timeout]: time in seconds to wait for a response from the archiver
+        """
+        if not isinstance(uuids, list):
+            uuids = [uuids]
+        where = " or ".join(['uuid = "{0}"'.format(uuid) for uuid in uuids])
+        return self.query("select * where {0}".format(where), archiver, timeout).get('metadata',{})
+
+    def data(self, where, start, end, archiver="", timeout=5):
+        """
+        With the given WHERE clause, retrieves all RAW data between the 2 given timestamps
+
+        Arguments:
+        [where]: the where clause (e.g. 'path like "keti"', 'SourceName = "TED Main"')
+        [start, end]: time references:
+        [archiver]: if specified, this is the archiver to use. Else, it will run on the first archiver passed
+                    into the constructor for the client
+        [timeout]: time in seconds to wait for a response from the archiver
+        """
+        return self.query("select data in ({0}, {1}) where {2}".format(start, end, where), archiver, timeout).get('timeseries',{})
+
     def data_uuids(self, uuids, start, end, archiver="", timeout=5):
         """
         With the given list of UUIDs, retrieves all RAW data between the 2 given timestamps
@@ -132,34 +172,21 @@ class BW2DataClient(object):
         if not isinstance(uuids, list):
             uuids = [uuids]
         where = " or ".join(['uuid = "{0}"'.format(uuid) for uuid in uuids])
-        return self.query("select data in ({0}, {1}) where {2}".format(start, end, where), archiver, timeout)
-
-    def data(self, where, start, end, archiver="", timeout=5):
-        """
-        With the given WHERE clause, retrieves all RAW data between the 2 given timestamps
-
-        Arguments:
-        [uuids]: list of UUIDs
-        [start, end]: time references:
-        [archiver]: if specified, this is the archiver to use. Else, it will run on the first archiver passed
-                    into the constructor for the client
-        [timeout]: time in seconds to wait for a response from the archiver
-        """
-        return self.query("select data in ({0}, {1}) where {2}".format(start, end, where), archiver, timeout)
+        return self.query("select data in ({0}, {1}) where {2}".format(start, end, where), archiver, timeout).get('timeseries',{})
 
     def stats(self, where, start, end, pw, archiver="", timeout=5):
         """
         With the given WHERE clause, retrieves all statistical data between the 2 given timestamps, using the given pointwidth
 
         Arguments:
-        [uuids]: list of UUIDs
+        [where]: the where clause (e.g. 'path like "keti"', 'SourceName = "TED Main"')
         [start, end]: time references:
         [pw]: pointwidth (window size of 2^pw nanoseconds)
         [archiver]: if specified, this is the archiver to use. Else, it will run on the first archiver passed
                     into the constructor for the client
         [timeout]: time in seconds to wait for a response from the archiver
         """
-        return self.query("select statistical({3}) data in ({0}, {1}) where {2}".format(start, end, where, pw), archiver, timeout)
+        return self.query("select statistical({3}) data in ({0}, {1}) where {2}".format(start, end, where, pw), archiver, timeout).get('timeseries',{})
 
     def stats_uuids(self, uuids, start, end, pw, archiver="", timeout=5):
         """
@@ -176,21 +203,21 @@ class BW2DataClient(object):
         if not isinstance(uuids, list):
             uuids = [uuids]
         where = " or ".join(['uuid = "{0}"'.format(uuid) for uuid in uuids])
-        return self.query("select statistical({3}) data in ({0}, {1}) where {2}".format(start, end, where, pw), archiver, timeout)
+        return self.query("select statistical({3}) data in ({0}, {1}) where {2}".format(start, end, where, pw), archiver, timeout).get('timeseries',{})
 
     def window(self, where, start, end, width, archiver="", timeout=5):
         """
         With the given WHERE clause, retrieves all statistical data between the 2 given timestamps, using the given window size
 
         Arguments:
-        [uuids]: list of UUIDs
+        [where]: the where clause (e.g. 'path like "keti"', 'SourceName = "TED Main"')
         [start, end]: time references:
         [width]: a time expression for the window size, e.g. "5s", "365d"
         [archiver]: if specified, this is the archiver to use. Else, it will run on the first archiver passed
                     into the constructor for the client
         [timeout]: time in seconds to wait for a response from the archiver
         """
-        return self.query("select window({3}) data in ({0}, {1}) where {2}".format(start, end, where, width), archiver, timeout)
+        return self.query("select window({3}) data in ({0}, {1}) where {2}".format(start, end, where, width), archiver, timeout).get('timeseries',{})
 
     def window_uuids(self, uuids, start, end, width, archiver="", timeout=5):
         """
@@ -207,7 +234,7 @@ class BW2DataClient(object):
         if not isinstance(uuids, list):
             uuids = [uuids]
         where = " or ".join(['uuid = "{0}"'.format(uuid) for uuid in uuids])
-        return self.query("select window({3}) data in ({0}, {1}) where {2}".format(start, end, where, width), archiver, timeout)
+        return self.query("select window({3}) data in ({0}, {1}) where {2}".format(start, end, where, width), archiver, timeout).get('timeseries',{})
 
 
 def timestamp(thing, nanoseconds=False):
