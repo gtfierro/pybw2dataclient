@@ -267,14 +267,14 @@ def getTimeseries(nonce, msg):
             if data["Nonce"] != nonce:
                 continue
             if data["Data"]:
-                ts_data = []
+                ts_data = {}
                 for res in data["Data"]:
-                    ts_data.append({res["UUID"]: zip(res["Times"], res["Values"])})
+                   ts_data[res["UUID"]]= zip(res["Times"], res["Values"])
                 return ts_data
             if data["Stats"]:
-                ts_data = []
+                ts_data = {}
                 for res in data["Stats"]:
-                    ts_data.append({res["UUID"]: zip(res["Times"], res["Min"], res["Mean"], res["Max"], res["Count"])})
+                    ts_data[res["UUID"]] = zip(res["Times"], res["Min"], res["Mean"], res["Max"], res["Count"])
                 return ts_data
             return data
 
