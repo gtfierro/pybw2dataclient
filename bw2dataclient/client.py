@@ -244,7 +244,7 @@ def timestamp(thing, nanoseconds=False):
         # try to treat as a number
         return str(thing)
     else:
-        return str(delorean.parse(thing).epoch) + 's'
+        return str(delorean.parse(thing).epoch)[:-2] + 's'
 
 def getError(nonce, msg):
     for po in msg.payload_objects:
@@ -274,7 +274,7 @@ def getTimeseries(nonce, msg):
             if data["Stats"]:
                 ts_data = []
                 for res in data["Stats"]:
-                    ts_data.append({res["UUID"]: zip(res["Times"], res["Min"], res["Mean"], res["Max"], res["Max"])})
+                    ts_data.append({res["UUID"]: zip(res["Times"], res["Min"], res["Mean"], res["Max"], res["Count"])})
                 return ts_data
             return data
 
