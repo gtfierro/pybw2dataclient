@@ -45,7 +45,7 @@ start = timestamp('1/25/2017')
 end = timestamp('1/28/2017')
 
 # get 1-hour window data for the first uuid
-data = c.window_uuids(uuids[0], start, end, '1h')
+data = client.window_uuids(uuids[0], start, end, '1h')
 
 # get a dataframe from the results, keyed by the UUID
 dfs = make_dataframe(data)
