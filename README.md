@@ -15,10 +15,12 @@ Requirements (do once):
 * configure a default entity (`$BW2_DEFAULT_ENTITY`) or otherwise make note of where your entity file is
 * install this library
     * using `pip`:
+    
       ```bash
       pip install bw2dataclient
       ```
     * from source:
+    
       ```bash
       git clone github.com/gtfierro/pybw2dataclient
       cd pybw2dataclient
@@ -33,7 +35,7 @@ from bw2dataclient import DataClient, timestamp, make_dataframe
 
 # we supply a list of archivers we want to be able to query
 # to find archivers on a namespace, install the pundat tool and run 'pundat scan'
-client = DataClient(archiver=["ucberkeley"])
+client = DataClient(archivers=["ucberkeley"])
 
 # get UUIDs
 uuids = client.uuids('SourceName = "TED Main"')
