@@ -272,7 +272,14 @@ def getMetadata(nonce, msg):
             data = msgpack.unpackb(po.content)
             if data["Nonce"] != nonce:
                 continue
-            return data["Data"]
+            # fold the metadata records into the top-level scope for each document
+            md = data["Data"]
+            for idx, doc in enumerate(md):
+                metadata = doc.pop("Metadata")
+                for k,v in metadata.items():
+                    doc[k] = v
+                md[idx] = doc
+            return md
 def getTimeseries(nonce, msg):
     for po in msg.payload_objects:
         if po.type_dotted == (2,0,8,4): # GilesTimeseriesResult
