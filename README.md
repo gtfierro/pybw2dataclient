@@ -1,5 +1,7 @@
 # Python BW2 Data Client
 
+**Current Version: 0.6.3**
+
 This is a simple Python library for accessing data services exposed over BOSSWAVE.
 
 Currently, this just interfaces with the [pundat archiver](https://github.com/gtfierro/pundat), and uses the sMAP-like [pundat query language](https://github.com/gtfierro/PunDat/wiki).
@@ -38,11 +40,11 @@ from bw2dataclient import DataClient, timestamp, make_dataframe
 client = DataClient(archivers=["ucberkeley"])
 
 # get UUIDs
-uuids = client.uuids('SourceName = "TED Main"')
+uuids = client.uuids('name = "air_temp" and Deployment = "CIEE"')
 
 # get timestamps
-start = timestamp('1/25/2017')
-end = timestamp('1/28/2017')
+start = timestamp('6/25/2017')
+end = timestamp('6/28/2017')
 
 # get 1-hour window data for the first uuid
 data = client.window_uuids(uuids[0], start, end, '1h')

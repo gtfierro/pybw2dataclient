@@ -9,6 +9,7 @@ from bw2python import ponames
 from bw2python.bwtypes import PayloadObject
 from bw2python.client import Client
 
+DEFAULT_TIMEOUT=30
 
 class DataClient(object):
     """
@@ -52,7 +53,7 @@ class DataClient(object):
                 if diff.total_seconds() < 20:
                     self.archivers.append(archiver)
 
-    def query(self, query, archiver="", timeout=5):
+    def query(self, query, archiver="", timeout=DEFAULT_TIMEOUT):
         """
         Runs the given pundat query and returns the results as a Python object.
 
@@ -102,7 +103,7 @@ class DataClient(object):
         ev.wait(timeout)
         return response
 
-    def uuids(self, where, archiver="", timeout=5):
+    def uuids(self, where, archiver="", timeout=DEFAULT_TIMEOUT):
         """
         Using the given where-clause, finds all UUIDs that match
 
@@ -114,11 +115,12 @@ class DataClient(object):
         """
         resp = self.query("select uuid where {0}".format(where), archiver, timeout)
         uuids = []
+        print resp
         for r in resp["metadata"]:
-            uuids.append(r["UUID"])
+            uuids.append(r["uuid"])
         return uuids
 
-    def tags(self, where, archiver="", timeout=5):
+    def tags(self, where, archiver="", timeout=DEFAULT_TIMEOUT):
         """
         Retrieves tags for all streams matching the given WHERE clause
 
@@ -130,7 +132,7 @@ class DataClient(object):
         """
         return self.query("select * where {0}".format(where), archiver, timeout).get('metadata',{})
 
-    def tags_uuids(self, uuids, archiver="", timeout=5):
+    def tags_uuids(self, uuids, archiver="", timeout=DEFAULT_TIMEOUT):
         """
         Retrieves tags for all streams with the provided UUIDs
 
@@ -145,7 +147,7 @@ class DataClient(object):
         where = " or ".join(['uuid = "{0}"'.format(uuid) for uuid in uuids])
         return self.query("select * where {0}".format(where), archiver, timeout).get('metadata',{})
 
-    def data(self, where, start, end, archiver="", timeout=5):
+    def data(self, where, start, end, archiver="", timeout=DEFAULT_TIMEOUT):
         """
         With the given WHERE clause, retrieves all RAW data between the 2 given timestamps
 
@@ -158,7 +160,7 @@ class DataClient(object):
         """
         return self.query("select data in ({0}, {1}) where {2}".format(start, end, where), archiver, timeout).get('timeseries',{})
 
-    def data_uuids(self, uuids, start, end, archiver="", timeout=5):
+    def data_uuids(self, uuids, start, end, archiver="", timeout=DEFAULT_TIMEOUT):
         """
         With the given list of UUIDs, retrieves all RAW data between the 2 given timestamps
 
@@ -174,7 +176,7 @@ class DataClient(object):
         where = " or ".join(['uuid = "{0}"'.format(uuid) for uuid in uuids])
         return self.query("select data in ({0}, {1}) where {2}".format(start, end, where), archiver, timeout).get('timeseries',{})
 
-    def stats(self, where, start, end, pw, archiver="", timeout=5):
+    def stats(self, where, start, end, pw, archiver="", timeout=DEFAULT_TIMEOUT):
         """
         With the given WHERE clause, retrieves all statistical data between the 2 given timestamps, using the given pointwidth
 
@@ -188,7 +190,7 @@ class DataClient(object):
         """
         return self.query("select statistical({3}) data in ({0}, {1}) where {2}".format(start, end, where, pw), archiver, timeout).get('timeseries',{})
 
-    def stats_uuids(self, uuids, start, end, pw, archiver="", timeout=5):
+    def stats_uuids(self, uuids, start, end, pw, archiver="", timeout=DEFAULT_TIMEOUT):
         """
         With the given set of uuids, retrieves all statistical data between the 2 given timestamps, using the given pointwidth
 
@@ -205,7 +207,7 @@ class DataClient(object):
         where = " or ".join(['uuid = "{0}"'.format(uuid) for uuid in uuids])
         return self.query("select statistical({3}) data in ({0}, {1}) where {2}".format(start, end, where, pw), archiver, timeout).get('timeseries',{})
 
-    def window(self, where, start, end, width, archiver="", timeout=5):
+    def window(self, where, start, end, width, archiver="", timeout=DEFAULT_TIMEOUT):
         """
         With the given WHERE clause, retrieves all statistical data between the 2 given timestamps, using the given window size
 
@@ -219,7 +221,7 @@ class DataClient(object):
         """
         return self.query("select window({3}) data in ({0}, {1}) where {2}".format(start, end, where, width), archiver, timeout).get('timeseries',{})
 
-    def window_uuids(self, uuids, start, end, width, archiver="", timeout=5):
+    def window_uuids(self, uuids, start, end, width, archiver="", timeout=DEFAULT_TIMEOUT):
         """
         With the given set of uuids, retrieves all statistical data between the 2 given timestamps, using the given window size
 
@@ -275,7 +277,7 @@ def getMetadata(nonce, msg):
             # fold the metadata records into the top-level scope for each document
             md = data["Data"]
             for idx, doc in enumerate(md):
-                metadata = doc.pop("Metadata")
+                metadata = doc.pop("metadata")
                 for k,v in metadata.items():
                     doc[k] = v
                 md[idx] = doc
@@ -289,12 +291,12 @@ def getTimeseries(nonce, msg):
             if data["Data"]:
                 ts_data = {}
                 for res in data["Data"]:
-                   ts_data[res["UUID"]]= zip(res["Times"], res["Values"])
+                   ts_data[res["uuid"]]= zip(res["times"], res["values"])
                 return ts_data
             if data["Stats"]:
                 ts_data = {}
                 for res in data["Stats"]:
-                    ts_data[res["UUID"]] = zip(res["Times"], res["Min"], res["Mean"], res["Max"], res["Count"])
+                    ts_data[res["uuid"]] = zip(res["times"], res["min"], res["mean"], res["max"], res["count"])
                 return ts_data
             return data
 
