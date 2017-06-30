@@ -1,6 +1,6 @@
 # Python BW2 Data Client
 
-**Current Version: 0.6.3**
+**Current Version: 0.6.4**
 
 This is a simple Python library for accessing data services exposed over BOSSWAVE.
 
