@@ -115,7 +115,6 @@ class DataClient(object):
         """
         resp = self.query("select uuid where {0}".format(where), archiver, timeout)
         uuids = []
-        print resp
         for r in resp["metadata"]:
             uuids.append(r["uuid"])
         return uuids
@@ -244,6 +243,9 @@ def make_dataframe(result):
     """
     import pandas as pd
     ret = {}
+    if isinstance(result,dict):
+        if 'timeseries' in result:
+            result = result['timeseries']
     for uuid, data in result.items():
         df = pd.DataFrame(data)
         df.columns = ['time','min','mean','max','count']
