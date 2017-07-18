@@ -1,3 +1,5 @@
+**OUTDATED: see https://github.com/SoftwareDefinedBuildings/XBOS/tree/master/python**
+
 # Python BW2 Data Client
 
 **Current Version: 0.6.4**
